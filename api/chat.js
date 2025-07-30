@@ -1,4 +1,4 @@
-// Dateipfad: /api/chat.js (DEBUG-VERSION)
+// Dateipfad: /api/chat.js (ENDGÜLTIG KORRIGIERTE VERSION)
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -45,12 +45,34 @@ export default async function handler(req, res) {
         const assistantResponse = messages.data.find(m => m.role === 'assistant');
 
         if (assistantResponse && assistantResponse.content[0].type === 'text') {
-            const rawResponseFromAI = assistantResponse.content[0].text.value;
-
-            // WIR BAUEN KEIN HTML, SONDERN ZEIGEN DIE ROHE ANTWORT DER KI AN
-            const debugHtml = `<p><strong>DEBUG-ANTWORT VON DER KI:</strong></p><pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #eee; padding: 10px; border-radius: 5px;">${escapeHtml(rawResponseFromAI)}</pre>`;
+            const rawJsonString = assistantResponse.content[0].text.value;
             
-            return res.status(200).json({ reply: debugHtml });
+            // Bereinigen, falls die KI die Antwort in einen Markdown-Block packt
+            let cleanJsonString = rawJsonString;
+            if (cleanJsonString.startsWith('```json')) {
+                cleanJsonString = cleanJsonString.substring(7, cleanJsonString.length - 3).trim();
+            } else if (cleanJsonString.startsWith('```')) {
+                cleanJsonString = cleanJsonString.substring(3, cleanJsonString.length - 3).trim();
+            }
+            
+            try {
+                const asanaData = JSON.parse(cleanJsonString);
+                
+                let htmlReply = '<p>Hier ist eine Auswahl an Asanas, die dir Orientierung geben können:</p><ul>';
+                
+                asanaData.forEach(asana => {
+                    // KORRIGIERTE ZEILE: Der Zeilenumbruch wurde entfernt.
+                    htmlReply += `<li><strong>${asana.name}:</strong> ${asana.begruendung} <a href="https://${asana.url}" target="_blank">Zum Asana</a></li>`;
+                });
+                
+                htmlReply += '</ul>';
+
+                return res.status(200).json({ reply: htmlReply });
+
+            } catch (jsonError) {
+                console.error("Fehler beim Parsen der JSON-Antwort:", jsonError);
+                return res.status(200).json({ reply: `<p>Die KI hat in einem unerwarteten Format geantwortet. Versuche es bitte erneut.</p>` });
+            }
 
         } else {
             throw new Error('Keine gültige Antwort vom Assistenten erhalten.');
@@ -60,13 +82,3 @@ export default async function handler(req, res) {
         return res.status(500).json({ message: error.message });
     }
 }
-
-// Kleine Hilfsfunktion, um den Text sicher als HTML anzuzeigen
-function escapeHtml(unsafe) {
-    return unsafe
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .replace(/"/g, "&quot;")
-         .replace(/'/g, "&#039;");
- }
