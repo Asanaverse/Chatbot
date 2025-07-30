@@ -44,14 +44,7 @@ export default async function handler(req, res) {
         const assistantResponse = messages.data.find(m => m.role === 'assistant');
 
         if (assistantResponse && assistantResponse.content[0].type === 'text') {
-            let rawJsonString = assistantResponse.content[0].text.value;
-            
-            // NEUER TEIL: Wir "packen" die Antwort aus dem Markdown-Block aus.
-            if (rawJsonString.startsWith('```json')) {
-                rawJsonString = rawJsonString.substring(7, rawJsonString.length - 3).trim();
-            } else if (rawJsonString.startsWith('```')) {
-                rawJsonString = rawJsonString.substring(3, rawJsonString.length - 3).trim();
-            }
+            const rawJsonString = assistantResponse.content[0].text.value;
             
             try {
                 const asanaData = JSON.parse(rawJsonString);
@@ -59,6 +52,7 @@ export default async function handler(req, res) {
                 let htmlReply = '<p>Hier ist eine Auswahl an Asanas, die dir Orientierung geben können:</p><ul>';
                 
                 asanaData.forEach(asana => {
+                    // Wir bauen den Link sicher im Code, mit target="_blank"
                     htmlReply += `<li><strong>${asana.name}:</strong> ${asana.begruendung} <a href="https://
 ${asana.url}" target="_blank">Zum Asana</a></li>`;
                 });
