@@ -1,24 +1,25 @@
-// == Dies ist die finale, korrekte Version ==
+// Dateipfad: /api/chat.js (FINALE VERSION)
 
-// Die permanenten, öffentlichen URLs zu deinen Dateien auf GitHub
-const ASANAS_URL = 'https://raw.githubusercontent.com/Asanaverse/Chatbot/main/data/asanas.json';
+// == DEINE ANPASSUNGEN HIER ==
+// 1. Ersetze diese URL mit deiner "Raw"-URL zur asanas.json
+const ASANAS_URL = 'https://raw.githubusercontent.com/Asanaverse/Chatbot/main/data/asanas.json'; 
+
+// 2. Ersetze diese URL mit deiner "Raw"-URL zur prompts.json (falls du sie nutzt)
 const PROMPTS_URL = 'https://raw.githubusercontent.com/Asanaverse/Chatbot/main/prompts.json';
-// =============================================
+// =============================
 
 
-// Eine Hilfsfunktion, um die Daten aus dem Internet zu laden und zu speichern, damit es schnell bleibt.
+// Hilfsfunktion, um die Daten aus dem Internet zu laden und zu speichern, damit es schnell bleibt.
 const asanasCache = {};
 const promptsCache = {};
 
 async function fetchData(url, cache) {
-    // Wenn Daten schon im Cache sind, direkt zurückgeben
     if (cache.data) {
-        return cache.data;
+        return cache.data; // Wenn schon geladen, direkt zurückgeben
     }
-    // Sonst, lade die Daten aus dem Netz
     try {
         const response = await fetch(url);
-        if (!response.ok) {
+        if (!response.ok) { // Prüft, ob der Link funktioniert
             throw new Error(`Netzwerk-Antwort war nicht ok: ${response.statusText}`);
         }
         cache.data = await response.json();
@@ -29,14 +30,12 @@ async function fetchData(url, cache) {
     }
 }
 
-
 export default async function handler(req, res) {
-    // Prüfen, ob es eine POST-Anfrage ist
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Nur POST erlaubt' });
     }
 
-    // Lade beide JSON-Dateien parallel, um Zeit zu sparen
+    // Lade beide JSON-Dateien parallel (das ist schneller)
     const [asanas, prompts] = await Promise.all([
         fetchData(ASANAS_URL, asanasCache),
         fetchData(PROMPTS_URL, promptsCache)
@@ -48,7 +47,7 @@ export default async function handler(req, res) {
     }
 
     const { query } = req.body;
-    const apiKey = process.env.DEEPSEEK_API_KEY;
+    const apiKey = process.env.DEEPSEEK_API_KEY; // Holt den Schlüssel sicher von Vercel
 
     // Baue den finalen System-Prompt für die KI zusammen
     const systemPrompt = `${prompts.system_prompt}\n\nHier ist deine Wissensdatenbank:\n${JSON.stringify(asanas)}`;
@@ -83,6 +82,6 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error('API Fehler:', error);
-        res.status(500).json({ message: `Fehler bei der Kommunikation mit der KI.` });
+        res.status(500).json({ message: 'Fehler bei der Kommunikation mit der KI.' });
     }
 }
