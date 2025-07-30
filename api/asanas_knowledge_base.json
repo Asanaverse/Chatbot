@@ -1,0 +1,23 @@
+[
+  {
+    "deutscher_name": "Der Baum",
+    "sanskrit_name": "Vrikshasana",
+    "beschreibung": "Fördert Gleichgewicht, Stabilität und Standfestigkeit.",
+    "chakra": "Wurzelchakra",
+    "kategorie": "Stehhaltung"
+  },
+  {
+    "deutscher_name": "Die Kobra",
+    "sanskrit_name": "Bhujangasana",
+    "beschreibung": "Stärkt den Rücken und öffnet das Herz.",
+    "chakra": "Herzchakra",
+    "kategorie": "Rückenbeuge"
+  },
+  {
+    "deutscher_name": "Der herabschauende Hund",
+    "sanskrit_name": "Adho Mukha Svanasana",
+    "beschreibung": "Dehnt die gesamte Rückseite und fördert die Durchblutung.",
+    "chakra": "Alle Chakras",
+    "kategorie": "Umkehrhaltung"
+  }
+]

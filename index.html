@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Asanaverse 🔮 KI-Assistent</title>
+    <style>
+        body { background-color: #f8f6f1; font-family: sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .chat-container { width: 100%; max-width: 700px; height: 100vh; background-color: #ffffff; display: flex; flex-direction: column; }
+        .chat-messages { flex-grow: 1; padding: 1rem; overflow-y: auto; }
+        .message { margin-bottom: 1rem; }
+        .user-message { text-align: right; color: #333; }
+        .bot-message { text-align: left; color: #444; }
+        .chat-input { display: flex; padding: 1rem; border-top: 1px solid #ddd; }
+        textarea { flex-grow: 1; padding: 0.5rem; }
+        button { padding: 0.5rem 1rem; margin-left: 0.5rem; }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-messages" id="chat-messages">
+            <div class="message bot-message">Hallo! Ich bin dein Asana-Berater. Was möchtest du wissen?</div>
+        </div>
+        <div class="chat-input">
+            <textarea id="user-input" placeholder="Deine Frage..." rows="1"></textarea>
+            <button id="send-button">Senden</button>
+        </div>
+    </div>
+    <script>
+        const input = document.getElementById('user-input');
+        const messages = document.getElementById('chat-messages');
+        document.getElementById('send-button').onclick = async () => {
+            const query = input.value.trim();
+            if (!query) return;
+            messages.innerHTML += `<div class="message user-message">${query}</div>`;
+            input.value = '';
+            messages.innerHTML += `<div class="message bot-message">🧘‍♂️ Denkt nach...</div>`;
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                const data = await res.json();
+                messages.lastChild.textContent = data.reply;
+            } catch {
+                messages.lastChild.textContent = "❌ Fehler bei der Antwort.";
+            }
+        };
+    </script>
+</body>
+</html>
