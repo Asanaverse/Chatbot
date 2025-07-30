@@ -24,10 +24,10 @@
 <body>
     <div class="chat-container">
         <div class="chat-messages" id="chat-messages">
-            <div class="message bot-message"><p>Hallo. Wobei kann ich dir Orientierung geben?</p></div>
+            <div class="message bot-message"><p>Ruf doch mal ins Asanaverse !</p></div>
         </div>
         <div class="chat-input">
-            <textarea id="user-input" placeholder="Stelle deine Frage..." rows="1"></textarea>
+            <textarea id="user-input" placeholder="Was hilft bei innerer Unruhe oder Vata-Überschuss?" rows="1"></textarea>
             <button id="send-button" onclick="sendMessage()">Senden</button>
         </div>
     </div>
@@ -65,7 +65,6 @@
                     throw new Error(errorResult.message || 'Serverfehler');
                 }
                 const result = await response.json();
-                // Wandle die Antwort (die HTML enthalten kann) um und zeige sie an
                 loadingDiv.innerHTML = marked.parse(result.reply);
             } catch (error) {
                 loadingDiv.innerHTML = `❌ Fehler: ${error.message}`;
