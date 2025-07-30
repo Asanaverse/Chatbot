@@ -1,4 +1,4 @@
-// Dateipfad: /api/chat.js (FINALE, SCHNELLE VERSION)
+// Dateipfad: /api/chat.js (FINALE, SCHNELLE & KORREKTE VERSION)
 
 const ASANAS_URL = 'https://raw.githubusercontent.com/Asanaverse/Chatbot/main/data/asanas.json'; 
 const PROMPTS_URL = 'https://raw.githubusercontent.com/Asanaverse/Chatbot/main/prompts.json';
@@ -19,23 +19,23 @@ async function fetchData(url, cache) {
     }
 }
 
-// NEUE FUNKTION: Durchsucht die Asanas nach Schlüsselwörtern
+// Suchfunktion, die die relevantesten Asanas findet
 function searchAsanas(asanas, query) {
     const queryWords = query.toLowerCase().split(/\s+/);
     const scoredAsanas = asanas.map(asana => {
         let score = 0;
         const searchableText = [
-            asana.Name,
-            asana.Asana_Name_Deutsch,
-            asana.Asana_Headertext,
-            asana["1_Körper_Head"],
-            asana["1_Körper_Body"],
-            asana["2_Körper_Head"],
-            asana["2_Körper_Body"],
-            asana["1_Psyce_Head"],
-            asana["1_Psyce_Body"],
-            asana["2_Psyce_Head"],
-            asana["2_Psyce_Body"]
+            asana.Name || '',
+            asana.Asana_Name_Deutsch || '',
+            asana.Asana_Headertext || '',
+            asana["1_Körper_Head"] || '',
+            asana["1_Körper_Body"] || '',
+            asana["2_Körper_Head"] || '',
+            asana["2_Körper_Body"] || '',
+            asana["1_Psyce_Head"] || '',
+            asana["1_Psyce_Body"] || '',
+            asana["2_Psyce_Head"] || '',
+            asana["2_Psyce_Body"] || ''
         ].join(' ').toLowerCase();
 
         queryWords.forEach(word => {
@@ -95,6 +95,6 @@ export default async function handler(req, res) {
         res.status(200).json({ reply });
     } catch (error) {
         console.error('API Fehler:', error);
-        res.status(500).json({ message: 'Fehler bei der Kommunikation mit der KI.' });
+        res.status(500).json({ message: `Fehler bei der Kommunikation mit der KI.` });
     }
 }
