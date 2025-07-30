@@ -1,100 +1,66 @@
-// Dateipfad: /api/chat.js (FINALE, SCHNELLE & KORREKTE VERSION)
+// Dateipfad: /api/chat.js (FINALE OPENAI ASSISTANT VERSION)
 
-const ASANAS_URL = 'https://raw.githubusercontent.com/Asanaverse/Chatbot/main/data/asanas.json'; 
-const PROMPTS_URL = 'https://raw.githubusercontent.com/Asanaverse/Chatbot/main/prompts.json';
+import OpenAI from 'openai';
 
-const asanasCache = {};
-const promptsCache = {};
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+});
 
-async function fetchData(url, cache) {
-    if (cache.data) return cache.data;
-    try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Netzwerk-Antwort war nicht ok: ${response.statusText}`);
-        cache.data = await response.json();
-        return cache.data;
-    } catch (error) {
-        console.error(`Fehler beim Laden von ${url}:`, error);
-        return null;
+const assistantId = process.env.OPENAI_ASSISTANT_ID;
+
+// Hilfsfunktion, um auf den Abschluss des Assistentenlaufs zu warten
+const waitForRunCompletion = async (threadId, runId) => {
+    while (true) {
+        const run = await openai.beta.threads.runs.retrieve(threadId, runId);
+        if (run.status === 'completed') {
+            return run;
+        }
+        if (['failed', 'cancelled', 'expired'].includes(run.status)) {
+            throw new Error(`Run failed with status: ${run.status}`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 Sekunde warten
     }
-}
-
-// Suchfunktion, die die relevantesten Asanas findet
-function searchAsanas(asanas, query) {
-    const queryWords = query.toLowerCase().split(/\s+/);
-    const scoredAsanas = asanas.map(asana => {
-        let score = 0;
-        const searchableText = [
-            asana.Name || '',
-            asana.Asana_Name_Deutsch || '',
-            asana.Asana_Headertext || '',
-            asana["1_Körper_Head"] || '',
-            asana["1_Körper_Body"] || '',
-            asana["2_Körper_Head"] || '',
-            asana["2_Körper_Body"] || '',
-            asana["1_Psyce_Head"] || '',
-            asana["1_Psyce_Body"] || '',
-            asana["2_Psyce_Head"] || '',
-            asana["2_Psyce_Body"] || ''
-        ].join(' ').toLowerCase();
-
-        queryWords.forEach(word => {
-            if (searchableText.includes(word)) {
-                score++;
-            }
-        });
-        return { ...asana, score };
-    });
-
-    return scoredAsanas.filter(a => a.score > 0).sort((a, b) => b.score - a.score).slice(0, 7);
-}
+};
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Nur POST erlaubt' });
     }
 
-    const [allAsanas, prompts] = await Promise.all([
-        fetchData(ASANAS_URL, asanasCache),
-        fetchData(PROMPTS_URL, promptsCache)
-    ]);
-
-    if (!allAsanas || !prompts) {
-        return res.status(500).json({ message: 'Serverfehler: Konnte die Wissensdatenbank oder Prompts nicht laden.' });
-    }
-
-    const { query } = req.body;
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-
-    // 1. ZUERST SUCHEN: Finde die relevantesten Asanas
-    const relevantAsanas = searchAsanas(allAsanas, query);
-
-    // 2. DANN FRAGEN: Baue einen kleinen, gezielten Prompt
-    const systemPrompt = `${prompts.system_prompt}\n\nStelle deine Antwort ausschließlich aus den folgenden, relevanten Asanas zusammen:\n${JSON.stringify(relevantAsanas)}`;
-
     try {
-        const response = await fetch('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-            body: JSON.stringify({
-                model: 'deepseek-chat',
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: query }
-                ]
-            })
+        const { query } = req.body;
+
+        // 1. Einen neuen "Gesprächs-Thread" erstellen
+        const thread = await openai.beta.threads.create();
+
+        // 2. Die Nachricht des Nutzers zum Thread hinzufügen
+        await openai.beta.threads.messages.create(thread.id, {
+            role: 'user',
+            content: query,
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error.message || 'DeepSeek API Fehler');
+        // 3. Den Assistenten auf diesem Thread starten
+        const run = await openai.beta.threads.runs.create(thread.id, {
+            assistant_id: assistantId,
+        });
+
+        // 4. Warten, bis der Assistent fertig ist
+        await waitForRunCompletion(thread.id, run.id);
+
+        // 5. Die Antworten des Assistenten abrufen
+        const messages = await openai.beta.threads.messages.list(thread.id);
+        const assistantResponse = messages.data.find(m => m.role === 'assistant');
+
+        // Sicherstellen, dass eine Antwort vorhanden ist und den Text-Inhalt extrahieren
+        if (assistantResponse && assistantResponse.content[0].type === 'text') {
+            const reply = assistantResponse.content[0].text.value;
+            return res.status(200).json({ reply });
+        } else {
+            return res.status(500).json({ message: 'Keine gültige Antwort vom Assistenten erhalten.' });
         }
 
-        const data = await response.json();
-        const reply = data.choices[0].message.content;
-        res.status(200).json({ reply });
     } catch (error) {
         console.error('API Fehler:', error);
-        res.status(500).json({ message: `Fehler bei der Kommunikation mit der KI.` });
+        return res.status(500).json({ message: 'Fehler bei der Kommunikation mit OpenAI.' });
     }
 }
