@@ -1,3 +1,4 @@
+// Dateipfad: /api/chat.js (DEBUG-VERSION)
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -44,27 +45,12 @@ export default async function handler(req, res) {
         const assistantResponse = messages.data.find(m => m.role === 'assistant');
 
         if (assistantResponse && assistantResponse.content[0].type === 'text') {
-            const rawJsonString = assistantResponse.content[0].text.value;
+            const rawResponseFromAI = assistantResponse.content[0].text.value;
+
+            // WIR BAUEN KEIN HTML, SONDERN ZEIGEN DIE ROHE ANTWORT DER KI AN
+            const debugHtml = `<p><strong>DEBUG-ANTWORT VON DER KI:</strong></p><pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #eee; padding: 10px; border-radius: 5px;">${escapeHtml(rawResponseFromAI)}</pre>`;
             
-            try {
-                const asanaData = JSON.parse(rawJsonString);
-                
-                let htmlReply = '<p>Hier ist eine Auswahl an Asanas, die dir Orientierung geben können:</p><ul>';
-                
-                asanaData.forEach(asana => {
-                    // Wir bauen den Link sicher im Code, mit target="_blank"
-                    htmlReply += `<li><strong>${asana.name}:</strong> ${asana.begruendung} <a href="https://
-${asana.url}" target="_blank">Zum Asana</a></li>`;
-                });
-                
-                htmlReply += '</ul>';
-
-                return res.status(200).json({ reply: htmlReply });
-
-            } catch (jsonError) {
-                console.error("Fehler beim Parsen der JSON-Antwort von der KI:", jsonError);
-                return res.status(200).json({ reply: `<p>Die KI hat in einem unerwarteten Format geantwortet. Versuche es bitte erneut.</p><p>Debug-Info: ${rawJsonString}</p>` });
-            }
+            return res.status(200).json({ reply: debugHtml });
 
         } else {
             throw new Error('Keine gültige Antwort vom Assistenten erhalten.');
@@ -74,3 +60,13 @@ ${asana.url}" target="_blank">Zum Asana</a></li>`;
         return res.status(500).json({ message: error.message });
     }
 }
+
+// Kleine Hilfsfunktion, um den Text sicher als HTML anzuzeigen
+function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+ }
