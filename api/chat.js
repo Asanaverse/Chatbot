@@ -1,4 +1,3 @@
-// Dateipfad: /api/chat.js (FINALE, NICHT-STREAMENDE OPENAI-VERSION)
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -22,41 +21,53 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Nur POST erlaubt' });
     }
-
     try {
         const { query } = req.body;
-
         if (!assistantId || !process.env.OPENAI_API_KEY) {
             throw new Error("API-Schlüssel oder Assistant-ID sind auf dem Server nicht konfiguriert.");
         }
-
-        // Neuen Thread erstellen
+        
         const thread = await openai.beta.threads.create();
-
-        // Nachricht des Users in den Thread posten
+        
         await openai.beta.threads.messages.create(thread.id, {
             role: 'user',
             content: query,
         });
-
-        // Assistant-Run starten mit tool_choice: "auto"
+        
         const run = await openai.beta.threads.runs.create(thread.id, {
             assistant_id: assistantId,
-            tool_choice: "auto", // ← Wichtig: erlaubt GPT, den Vector Store zu verwenden
         });
-
-        // Auf Abschluss des Runs warten
+        
         await waitForRunCompletion(thread.id, run.id);
-
-        // Alle Nachrichten im Thread abrufen
+        
         const messages = await openai.beta.threads.messages.list(thread.id);
-
-        // Antwort des Assistant extrahieren
         const assistantResponse = messages.data.find(m => m.role === 'assistant');
 
         if (assistantResponse && assistantResponse.content[0].type === 'text') {
-            const reply = assistantResponse.content[0].text.value;
-            return res.status(200).json({ reply });
+            const rawJsonString = assistantResponse.content[0].text.value;
+            
+            // WICHTIGER TEIL: Wir parsen die JSON-Antwort und bauen das HTML selbst zusammen.
+            try {
+                const asanaData = JSON.parse(rawJsonString);
+                
+                let htmlReply = '<p>Hier ist eine Auswahl an Asanas, die dir Orientierung geben können:</p><ul>';
+                
+                asanaData.forEach(asana => {
+                    // Wir bauen den Link sicher im Code, mit target="_blank"
+                    htmlReply += `<li><strong>${asana.name}:</strong> ${asana.begruendung} <a href="https://
+${asana.url}" target="_blank">Zum Asana</a></li>`;
+                });
+                
+                htmlReply += '</ul>';
+
+                return res.status(200).json({ reply: htmlReply });
+
+            } catch (jsonError) {
+                console.error("Fehler beim Parsen der JSON-Antwort von der KI:", jsonError);
+                // Wenn die KI kein valides JSON schickt, geben wir ihre Roh-Antwort zur Fehlersuche zurück
+                return res.status(200).json({ reply: `<p>Die KI hat in einem unerwarteten Format geantwortet. Versuche es bitte erneut.</p><p>Debug-Info: ${rawJsonString}</p>` });
+            }
+
         } else {
             throw new Error('Keine gültige Antwort vom Assistenten erhalten.');
         }
