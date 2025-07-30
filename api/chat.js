@@ -44,16 +44,21 @@ export default async function handler(req, res) {
         const assistantResponse = messages.data.find(m => m.role === 'assistant');
 
         if (assistantResponse && assistantResponse.content[0].type === 'text') {
-            const rawJsonString = assistantResponse.content[0].text.value;
+            let rawJsonString = assistantResponse.content[0].text.value;
             
-            // WICHTIGER TEIL: Wir parsen die JSON-Antwort und bauen das HTML selbst zusammen.
+            // NEUER TEIL: Wir "packen" die Antwort aus dem Markdown-Block aus.
+            if (rawJsonString.startsWith('```json')) {
+                rawJsonString = rawJsonString.substring(7, rawJsonString.length - 3).trim();
+            } else if (rawJsonString.startsWith('```')) {
+                rawJsonString = rawJsonString.substring(3, rawJsonString.length - 3).trim();
+            }
+            
             try {
                 const asanaData = JSON.parse(rawJsonString);
                 
                 let htmlReply = '<p>Hier ist eine Auswahl an Asanas, die dir Orientierung geben können:</p><ul>';
                 
                 asanaData.forEach(asana => {
-                    // Wir bauen den Link sicher im Code, mit target="_blank"
                     htmlReply += `<li><strong>${asana.name}:</strong> ${asana.begruendung} <a href="https://
 ${asana.url}" target="_blank">Zum Asana</a></li>`;
                 });
@@ -64,7 +69,6 @@ ${asana.url}" target="_blank">Zum Asana</a></li>`;
 
             } catch (jsonError) {
                 console.error("Fehler beim Parsen der JSON-Antwort von der KI:", jsonError);
-                // Wenn die KI kein valides JSON schickt, geben wir ihre Roh-Antwort zur Fehlersuche zurück
                 return res.status(200).json({ reply: `<p>Die KI hat in einem unerwarteten Format geantwortet. Versuche es bitte erneut.</p><p>Debug-Info: ${rawJsonString}</p>` });
             }
 
