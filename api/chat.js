@@ -1,27 +1,16 @@
-// Dateipfad: /api/chat.js (FINALE VERSION)
+// Dateipfad: /api/chat.js (FINALE, SCHNELLE VERSION)
 
-// == DEINE ANPASSUNGEN HIER ==
-// 1. Ersetze diese URL mit deiner "Raw"-URL zur asanas.json
 const ASANAS_URL = 'https://raw.githubusercontent.com/Asanaverse/Chatbot/main/data/asanas.json'; 
-
-// 2. Ersetze diese URL mit deiner "Raw"-URL zur prompts.json (falls du sie nutzt)
 const PROMPTS_URL = 'https://raw.githubusercontent.com/Asanaverse/Chatbot/main/prompts.json';
-// =============================
 
-
-// Hilfsfunktion, um die Daten aus dem Internet zu laden und zu speichern, damit es schnell bleibt.
 const asanasCache = {};
 const promptsCache = {};
 
 async function fetchData(url, cache) {
-    if (cache.data) {
-        return cache.data; // Wenn schon geladen, direkt zurückgeben
-    }
+    if (cache.data) return cache.data;
     try {
         const response = await fetch(url);
-        if (!response.ok) { // Prüft, ob der Link funktioniert
-            throw new Error(`Netzwerk-Antwort war nicht ok: ${response.statusText}`);
-        }
+        if (!response.ok) throw new Error(`Netzwerk-Antwort war nicht ok: ${response.statusText}`);
         cache.data = await response.json();
         return cache.data;
     } catch (error) {
@@ -30,36 +19,63 @@ async function fetchData(url, cache) {
     }
 }
 
+// NEUE FUNKTION: Durchsucht die Asanas nach Schlüsselwörtern
+function searchAsanas(asanas, query) {
+    const queryWords = query.toLowerCase().split(/\s+/);
+    const scoredAsanas = asanas.map(asana => {
+        let score = 0;
+        const searchableText = [
+            asana.Name,
+            asana.Asana_Name_Deutsch,
+            asana.Asana_Headertext,
+            asana["1_Körper_Head"],
+            asana["1_Körper_Body"],
+            asana["2_Körper_Head"],
+            asana["2_Körper_Body"],
+            asana["1_Psyce_Head"],
+            asana["1_Psyce_Body"],
+            asana["2_Psyce_Head"],
+            asana["2_Psyce_Body"]
+        ].join(' ').toLowerCase();
+
+        queryWords.forEach(word => {
+            if (searchableText.includes(word)) {
+                score++;
+            }
+        });
+        return { ...asana, score };
+    });
+
+    return scoredAsanas.filter(a => a.score > 0).sort((a, b) => b.score - a.score).slice(0, 7);
+}
+
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Nur POST erlaubt' });
     }
 
-    // Lade beide JSON-Dateien parallel (das ist schneller)
-    const [asanas, prompts] = await Promise.all([
+    const [allAsanas, prompts] = await Promise.all([
         fetchData(ASANAS_URL, asanasCache),
         fetchData(PROMPTS_URL, promptsCache)
     ]);
 
-    // Wenn eine der Dateien nicht geladen werden konnte, sende eine Fehlermeldung
-    if (!asanas || !prompts) {
+    if (!allAsanas || !prompts) {
         return res.status(500).json({ message: 'Serverfehler: Konnte die Wissensdatenbank oder Prompts nicht laden.' });
     }
 
     const { query } = req.body;
-    const apiKey = process.env.DEEPSEEK_API_KEY; // Holt den Schlüssel sicher von Vercel
+    const apiKey = process.env.DEEPSEEK_API_KEY;
 
-    // Baue den finalen System-Prompt für die KI zusammen
-    const systemPrompt = `${prompts.system_prompt}\n\nHier ist deine Wissensdatenbank:\n${JSON.stringify(asanas)}`;
+    // 1. ZUERST SUCHEN: Finde die relevantesten Asanas
+    const relevantAsanas = searchAsanas(allAsanas, query);
+
+    // 2. DANN FRAGEN: Baue einen kleinen, gezielten Prompt
+    const systemPrompt = `${prompts.system_prompt}\n\nStelle deine Antwort ausschließlich aus den folgenden, relevanten Asanas zusammen:\n${JSON.stringify(relevantAsanas)}`;
 
     try {
-        // Sende die Anfrage an die DeepSeek API
         const response = await fetch('https://api.deepseek.com/chat/completions', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
             body: JSON.stringify({
                 model: 'deepseek-chat',
                 messages: [
@@ -71,15 +87,12 @@ export default async function handler(req, res) {
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error.message || 'Unbekannter Fehler von der DeepSeek API');
+            throw new Error(errorData.error.message || 'DeepSeek API Fehler');
         }
 
         const data = await response.json();
         const reply = data.choices[0].message.content;
-        
-        // Sende die Antwort der KI zurück an das Chat-Fenster
-        res.status(200).json({ reply: reply });
-
+        res.status(200).json({ reply });
     } catch (error) {
         console.error('API Fehler:', error);
         res.status(500).json({ message: 'Fehler bei der Kommunikation mit der KI.' });
