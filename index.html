@@ -73,4 +73,90 @@
       </div>
     </div>
     <div class="chat-input">
-      <textarea id="user-input" rows="1" placeholder="Was hilft bei
+      <textarea id="user-input" rows="1" placeholder="Was hilft bei Vata-Überschuss?"></textarea>
+      <button id="send-button" onclick="sendMessage()">Senden</button>
+    </div>
+  </div>
+
+  <script>
+    const userInput = document.getElementById('user-input');
+    const chatMessages = document.getElementById('chat-messages');
+    const sendButton = document.getElementById('send-button');
+
+    userInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+      }
+    });
+
+    async function sendMessage() {
+      const query = userInput.value.trim();
+      if (!query) return;
+
+      sendButton.disabled = true;
+      userInput.disabled = true;
+
+      const userMsg = document.createElement('div');
+      userMsg.className = 'message user-message';
+      userMsg.textContent = query;
+      chatMessages.appendChild(userMsg);
+
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'message bot-message';
+      loadingDiv.textContent = '🧘‍♀️ Suche nach passenden Asanas...';
+      chatMessages.appendChild(loadingDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      try {
+        const res = await fetch('/api/assistant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: query })
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.message || 'Serverfehler');
+        }
+
+        const result = await res.json();
+        const rawText = result.result?.[0]?.text?.value;
+
+        if (!rawText) {
+          loadingDiv.innerHTML = '<p>Ich konnte leider keine Antwort erzeugen.</p>';
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(rawText);
+
+          if (Array.isArray(parsed)) {
+            let html = '<p>Hier sind passende Asanas:</p><ul>';
+            parsed.forEach(item => {
+              html += `<li><strong>${item.name}</strong>: ${item.begruendung} <a href="${item.url}" target="_blank">Zum Asana</a></li>`;
+            });
+            html += '</ul>';
+            loadingDiv.innerHTML = html;
+          } else {
+            loadingDiv.innerHTML = `<p>${rawText}</p>`;
+          }
+
+        } catch (e) {
+          loadingDiv.innerHTML = `<p>${rawText}</p><p><em>(Kein JSON)</em></p>`;
+        }
+
+      } catch (err) {
+        console.error(err);
+        loadingDiv.innerHTML = '❌ Verbindungsfehler: Bitte versuche es erneut.';
+      } finally {
+        sendButton.disabled = false;
+        userInput.disabled = false;
+        userInput.value = '';
+        userInput.focus();
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    }
+  </script>
+</body>
+</html>
