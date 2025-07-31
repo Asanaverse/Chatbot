@@ -1,23 +1,5 @@
 import OpenAI from 'openai';
 
-const ASANAS_URL = 'https://raw.githubusercontent.com/Asanaverse/Chatbot/main/data/asanas_full_cleaned.json';
-const asanasCache = {};
-
-// Funktion, um unsere eigene Asana-Datenbank zu laden
-async function getAsanaDatabase() {
-    if (asanasCache.data) return asanasCache.data;
-    try {
-        const response = await fetch(ASANAS_URL);
-        asanasCache.data = await response.json();
-        // Erstelle eine schnelle Suchkarte (Map) für den sofortigen Zugriff
-        asanasCache.map = new Map(asanasCache.data.map(item => [item.Name, item]));
-        return asanasCache.data;
-    } catch (error) {
-        console.error("Fehler beim Laden der Asana-Datenbank:", error);
-        return null;
-    }
-}
-
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const assistantId = process.env.OPENAI_ASSISTANT_ID;
 
@@ -38,47 +20,58 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Stelle sicher, dass unsere eigene Datenbank geladen ist
-        await getAsanaDatabase();
-        if (!asanasCache.map) {
-            throw new Error("Asana-Wissensdatenbank konnte nicht geladen werden.");
-        }
-
         const { query } = req.body;
+        
+        // Erstelle Thread
         const thread = await openai.beta.threads.create();
         
+        // Sende Nachricht mit spezifischen Anweisungen
         await openai.beta.threads.messages.create(thread.id, {
             role: 'user',
-            content: query,
+            content: `${query}
+
+Bitte antworte im folgenden JSON-Format:
+[
+  {
+    "name": "Asana Name",
+    "begruendung": "Warum dieses Asana hilfreich ist",
+    "url": "Die vollständige URL zum Asana"
+  }
+]`
         });
         
-        const run = await openai.beta.threads.runs.create(thread.id, { assistant_id: assistantId });
+        // Starte Run mit Assistant (der hat Zugriff auf Vector Store)
+        const run = await openai.beta.threads.runs.create(thread.id, { 
+            assistant_id: assistantId 
+        });
+        
         await waitForRunCompletion(thread.id, run.id);
 
+        // Hole Antwort
         const messages = await openai.beta.threads.messages.list(thread.id);
         const assistantResponse = messages.data.find(m => m.role === 'assistant');
 
         if (assistantResponse && assistantResponse.content[0].type === 'text') {
-            const rawJsonString = assistantResponse.content[0].text.value;
-            const aiSuggestions = JSON.parse(rawJsonString);
+            const responseText = assistantResponse.content[0].text.value;
             
-            let htmlReply = '<p>Hier ist eine Auswahl an Asanas, die dir Orientierung geben können:</p><ul>';
-            
-            // Gehe durch die Vorschläge der KI
-            aiSuggestions.forEach(suggestion => {
-                // FINDE DIE KORREKTEN DATEN IN UNSERER DATENBANK
-                const correctAsana = asanasCache.map.get(suggestion.name);
+            try {
+                // Versuche JSON zu parsen
+                const aiSuggestions = JSON.parse(responseText);
                 
-                if (correctAsana) {
-                    // Baue das HTML mit der 100% KORREKTEN URL
-                    htmlReply += `<li><strong>${correctAsana.Name}:</strong> ${suggestion.begruendung} <a href="https://
-${correctAsana.URL}" target="_blank">Zum Asana</a></li>`;
-                }
-            });
-            
-            htmlReply += '</ul>';
-
-            return res.status(200).json({ reply: htmlReply });
+                let htmlReply = '<p>Hier ist eine Auswahl an Asanas, die dir Orientierung geben können:</p><ul>';
+                
+                aiSuggestions.forEach(suggestion => {
+                    htmlReply += `<li><strong>${suggestion.name}:</strong> ${suggestion.begruendung} <a href="${suggestion.url}" target="_blank">Zum Asana</a></li>`;
+                });
+                
+                htmlReply += '</ul>';
+                
+                return res.status(200).json({ reply: htmlReply });
+                
+            } catch (parseError) {
+                // Falls JSON-Parsing fehlschlägt, gib die rohe Antwort zurück
+                return res.status(200).json({ reply: responseText });
+            }
 
         } else {
             throw new Error('Keine gültige Antwort vom Assistenten erhalten.');
@@ -86,6 +79,9 @@ ${correctAsana.URL}" target="_blank">Zum Asana</a></li>`;
 
     } catch (error) {
         console.error('API Fehler:', error);
-        return res.status(500).json({ message: error.message });
+        return res.status(500).json({ 
+            message: `Fehler: ${error.message}`,
+            reply: 'Entschuldigung, es gab einen technischen Fehler. Bitte versuche es erneut.'
+        });
     }
 }
