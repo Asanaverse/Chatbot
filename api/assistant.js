@@ -1,11 +1,12 @@
+// /api/assistant.js
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const ASSISTANT_ID = 'asst_XXXX';       // 🔁 ersetzen!
-const VECTOR_STORE_ID = 'vs_XXXX';      // 🔁 ersetzen!
+const ASSISTANT_ID = 'asst_xxx'; // 👉 hier DEIN Assistant-ID eintragen
+const VECTOR_STORE_ID = 'vs_xxx'; // 👉 hier DEIN Vector-Store-ID eintragen
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -32,6 +33,7 @@ export default async function handler(req, res) {
       tool_choice: { type: 'file_search' },
     });
 
+    // Warten bis run abgeschlossen
     let runStatus;
     do {
       await new Promise((r) => setTimeout(r, 1500));
@@ -43,7 +45,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ result: answer.content });
   } catch (err) {
-    console.error('Assistant-Fehler:', err);
-    res.status(500).json({ error: 'Assistant-Fehler beim Abruf' });
+    console.error(err);
+    res.status(500).json({ error: 'Assistant-Fehler' });
   }
 }
