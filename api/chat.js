@@ -22,10 +22,8 @@ export default async function handler(req, res) {
     try {
         const { query } = req.body;
         
-        // Erstelle Thread
         const thread = await openai.beta.threads.create();
         
-        // Sende Nachricht mit spezifischen Anweisungen
         await openai.beta.threads.messages.create(thread.id, {
             role: 'user',
             content: `${query}
@@ -40,18 +38,15 @@ Bitte antworte im folgenden JSON-Format und nutze die Daten aus dem Vector Store
 ]`
         });
         
-        // Starte Run
         const run = await openai.beta.threads.runs.create(thread.id, { 
             assistant_id: assistantId 
         });
         
         await waitForRunCompletion(thread.id, run.id);
 
-        // Hole Antwort
         const messages = await openai.beta.threads.messages.list(thread.id);
         const assistantResponse = messages.data.find(m => m.role === 'assistant');
 
-        // FALLBACK 1: Keine Antwort vom Assistant
         if (!assistantResponse || !assistantResponse.content[0]) {
             return res.status(200).json({ 
                 reply: 'Entschuldigung, ich konnte keine passenden Asanas finden. Bitte formuliere deine Frage anders oder versuche es erneut.' 
@@ -61,16 +56,13 @@ Bitte antworte im folgenden JSON-Format und nutze die Daten aus dem Vector Store
         if (assistantResponse.content[0].type === 'text') {
             const responseText = assistantResponse.content[0].text.value;
             
-            // TEMPORÄRES LOGGING
             console.log('=== DEBUG: Assistant Response ===');
             console.log(responseText);
             console.log('=== END DEBUG ===');
             
             try {
-                // Versuche JSON zu parsen
                 const aiSuggestions = JSON.parse(responseText);
                 
-                // FALLBACK 2: Leeres Array
                 if (!Array.isArray(aiSuggestions) || aiSuggestions.length === 0) {
                     return res.status(200).json({ 
                         reply: 'Ich konnte keine passenden Asanas für deine Anfrage finden. Versuche es mit anderen Begriffen.' 
@@ -80,7 +72,6 @@ Bitte antworte im folgenden JSON-Format und nutze die Daten aus dem Vector Store
                 let htmlReply = '<p>Hier ist eine Auswahl an Asanas, die dir Orientierung geben können:</p><ul>';
                 
                 aiSuggestions.forEach(suggestion => {
-                    // FALLBACK 3: Unvollständige Daten
                     const name = suggestion.name || 'Unbekanntes Asana';
                     const begruendung = suggestion.begruendung || 'Hilfreich für deine Praxis';
                     const url = suggestion.url || '#';
@@ -93,7 +84,6 @@ Bitte antworte im folgenden JSON-Format und nutze die Daten aus dem Vector Store
                 return res.status(200).json({ reply: htmlReply });
                 
             } catch (parseError) {
-                // FALLBACK 4: JSON-Parsing fehlgeschlagen
                 console.log('JSON Parse Error:', parseError);
                 return res.status(200).json({ 
                     reply: `<p>${responseText}</p><p><em>Hinweis: Die Antwort konnte nicht optimal formatiert werden.</em></p>` 
@@ -101,14 +91,12 @@ Bitte antworte im folgenden JSON-Format und nutze die Daten aus dem Vector Store
             }
 
         } else {
-            // FALLBACK 5: Unerwarteter Content-Type
             return res.status(200).json({ 
                 reply: 'Entschuldigung, ich habe eine unerwartete Antwort erhalten. Bitte versuche es erneut.' 
             });
         }
 
     } catch (error) {
-        // FALLBACK 6: Allgemeiner Fehler
         console.error('API Fehler:', error);
         return res.status(500).json({ 
             message: `Fehler: ${error.message}`,
