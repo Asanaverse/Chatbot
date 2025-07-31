@@ -42,7 +42,9 @@ export default async function handler(req, res) {
     const messages = await openai.beta.threads.messages.list(thread.id);
     const answer = messages.data.find((m) => m.role === 'assistant');
 
-    res.status(200).json({ result: answer.content });
+    const rawText = answer?.content?.[0]?.text?.value || '';
+    res.status(200).json({ result: [{ text: { value: rawText } }] });
+
   } catch (err) {
     console.error('Assistant-Fehler:', err);
     res.status(500).json({ error: 'Assistant-Fehler beim Abruf' });
