@@ -10,36 +10,40 @@ async function sendPromptToAssistant(promptText) {
 
     const data = await res.json();
 
-    if (data.result && data.result[0]?.text?.value) {
-      const responseText = data.result[0].text.value;
+    // Erwartet: JSON-String als Assistant-Antwort im Format: "[{ name, begruendung, url }, ...]"
+    const rawText = data.result?.[0]?.text?.value;
 
-      try {
-        const aiSuggestions = JSON.parse(responseText);
-
-        if (!Array.isArray(aiSuggestions) || aiSuggestions.length === 0) {
-          renderOutput(`<p>Keine passenden Asanas gefunden. Versuche es mit anderen Begriffen.</p>`);
-          return;
-        }
-
-        let htmlReply = '<p>Hier ist eine Auswahl an Asanas, die dir Orientierung geben können:</p><ul>';
-
-        aiSuggestions.forEach(suggestion => {
-          const name = suggestion.name || 'Unbekanntes Asana';
-          const begruendung = suggestion.begruendung || 'Hilfreich für deine Praxis';
-          const url = suggestion.url || '#';
-
-          htmlReply += `<li><strong>${name}:</strong> ${begruendung} <a href="${url}" target="_blank">Zum Asana</a></li>`;
-        });
-
-        htmlReply += '</ul>';
-        renderOutput(htmlReply);
-      } catch (parseError) {
-        console.log('JSON Parse Error:', parseError);
-        renderOutput(`<p>${responseText}</p><p><em>Hinweis: Die Antwort konnte nicht als JSON gelesen werden.</em></p>`);
-      }
-    } else {
-      renderOutput('<p>Entschuldigung, ich konnte keine Antwort generieren.</p>');
+    if (!rawText) {
+      renderOutput('<p>Ich konnte leider keine passende Antwort erzeugen.</p>');
+      return;
     }
+
+    try {
+      const aiSuggestions = JSON.parse(rawText);
+
+      if (!Array.isArray(aiSuggestions) || aiSuggestions.length === 0) {
+        renderOutput('<p>Keine passenden Asanas gefunden. Versuche es mit anderen Begriffen.</p>');
+        return;
+      }
+
+      let htmlReply = '<p>Hier ist eine Auswahl an Asanas, die dir Orientierung geben können:</p><ul>';
+
+      aiSuggestions.forEach(suggestion => {
+        const name = suggestion.name || 'Unbekanntes Asana';
+        const begruendung = suggestion.begruendung || 'Hilfreich für deine Praxis';
+        const url = suggestion.url || '#';
+
+        htmlReply += `<li><strong>${name}:</strong> ${begruendung} <a href="${url}" target="_blank">Zum Asana</a></li>`;
+      });
+
+      htmlReply += '</ul>';
+      renderOutput(htmlReply);
+
+    } catch (parseError) {
+      console.error('Fehler beim Parsen der JSON-Antwort:', parseError);
+      renderOutput(`<p>${rawText}</p><p><em>Hinweis: Die Antwort konnte nicht als JSON gelesen werden.</em></p>`);
+    }
+
   } catch (error) {
     console.error('Frontend API Fehler:', error);
     renderOutput('<p>Es gab einen technischen Fehler. Bitte versuche es später erneut.</p>');
