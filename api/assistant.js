@@ -34,10 +34,15 @@ export default async function handler(req, res) {
     });
 
     let runStatus;
-    do {
-      await new Promise((r) => setTimeout(r, 1500));
-      runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
-    } while (runStatus.status !== 'completed');
+do {
+  await new Promise((r) => setTimeout(r, 1500));
+  runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+} while (!['completed', 'failed', 'cancelled', 'expired'].includes(runStatus.status));
+
+if (runStatus.status !== 'completed') {
+  throw new Error(`Run failed with status: ${runStatus.status}`);
+}
+
 
     const messages = await openai.beta.threads.messages.list(thread.id);
     const answer = messages.data.find((m) => m.role === 'assistant');
