@@ -143,7 +143,44 @@ async function sendMessage() {
     try {
       const parsed = JSON.parse(rawText);
 
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      // NEUE STRUKTUR: Objekt mit einleitung + asanas
+      if (parsed.einleitung && parsed.asanas) {
+        let html = '<p><strong>Das Echo ruft zurück:</strong></p>';
+        
+        // Einleitung einmal anzeigen
+        html += `<p style="color: #666; font-style: italic; margin-bottom: 1.5rem; line-height: 1.5;">${parsed.einleitung}</p>`;
+        
+        // Dann alle Asanas
+        if (Array.isArray(parsed.asanas) && parsed.asanas.length > 0) {
+          html += '<ul style="list-style: none; padding-left: 0;">';
+          
+          parsed.asanas.forEach(item => {
+            const name = item.name || 'Unbekanntes Asana';
+            const begruendung = item.begruendung || 'Hilfreich für deine Praxis';
+            const url = item.url;
+            
+            if (url && url !== 'null' && url !== null && url.startsWith('http')) {
+              html += `<li style="margin-bottom: 1rem; padding: 0.8rem; background: rgba(248, 140, 87, 0.1); border-radius: 8px;">
+                <strong style="color: #d67c47;">${name}</strong><br>
+                <span style="color: #666; line-height: 1.4;">${begruendung}</span><br>
+                <a href="${url}" target="_blank" style="color: #f88c57; text-decoration: none; font-weight: 500; margin-top: 0.5rem; display: inline-block;">→ Zur Asana</a>
+              </li>`;
+            } else {
+              html += `<li style="margin-bottom: 1rem; padding: 0.8rem; background: rgba(248, 140, 87, 0.1); border-radius: 8px;">
+                <strong style="color: #d67c47;">${name}</strong><br>
+                <span style="color: #666; line-height: 1.4;">${begruendung}</span><br>
+                <em style="color: #999; font-size: 0.9em;">Pfad zur Asana nicht verfügbar</em>
+              </li>`;
+            }
+          });
+          
+          html += '</ul>';
+        }
+        
+        loadingDiv.innerHTML = html;
+      }
+      // FALLBACK: Alte Struktur (Array)
+      else if (Array.isArray(parsed) && parsed.length > 0) {
         let html = '<p><strong>Das Echo ruft zurück:</strong></p><ul style="list-style: none; padding-left: 0;">';
         
         parsed.forEach(item => {
