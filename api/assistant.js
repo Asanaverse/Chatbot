@@ -23,35 +23,64 @@ export default async function handler(req, res) {
       },
     });
 
+    // ERWEITERTE Anfrage mit spezifischem Prompt
+    const enhancedPrompt = `${prompt}
+
+WICHTIG: Du MUSST die Asana-Datenbank durchsuchen und passende Asanas mit ihren URLs finden.
+
+Antworte ausschließlich in diesem exakten JSON-Format (ohne Code-Blöcke):
+[
+  {
+    "name": "Asana Name - Sanskrit",
+    "begruendung": "Warum dieses Asana hilfreich ist",
+    "url": "https://vollständige-url-aus-der-datenbank.com"
+  }
+]
+
+Verwende NUR Asanas und URLs aus der Datenbank. Erfinde keine URLs.`;
+
     await openai.beta.threads.messages.create(thread.id, {
       role: 'user',
-      content: prompt,
+      content: enhancedPrompt,
     });
 
     const run = await openai.beta.threads.runs.create(thread.id, {
       assistant_id: ASSISTANT_ID,
-      tool_choice: { type: 'file_search' }, // ← ERZWINGT Nutzung deiner Daten
+      tools: [{ type: 'file_search' }], // KORRIGIERT: tools statt tool_choice
     });
 
     let runStatus;
-do {
-  await new Promise((r) => setTimeout(r, 1500));
-  runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
-} while (!['completed', 'failed', 'cancelled', 'expired'].includes(runStatus.status));
+    let attempts = 0;
+    const maxAttempts = 30; // Max 45 Sekunden warten
 
-if (runStatus.status !== 'completed') {
-  throw new Error(`Run failed with status: ${runStatus.status}`);
-}
+    do {
+      await new Promise((r) => setTimeout(r, 1500));
+      runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+      attempts++;
+      console.log(`Run Status: ${runStatus.status} (Attempt ${attempts}/${maxAttempts})`);
+      
+      if (attempts >= maxAttempts) {
+        throw new Error('Timeout: Assistant hat zu lange gebraucht');
+      }
+    } while (!['completed', 'failed', 'cancelled', 'expired'].includes(runStatus.status));
 
+    if (runStatus.status !== 'completed') {
+      throw new Error(`Run failed with status: ${runStatus.status}`);
+    }
 
     const messages = await openai.beta.threads.messages.list(thread.id);
     const answer = messages.data.find((m) => m.role === 'assistant');
 
-    const rawText = answer?.content?.[0]?.text?.value || '';
+    let rawText = answer?.content?.[0]?.text?.value || '';
+    console.log('Raw Assistant Response:', rawText);
+
+    // KORRIGIERT: Entferne Markdown-Code-Blöcke
+    rawText = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
     res.status(200).json({ result: [{ text: { value: rawText } }] });
 
   } catch (err) {
     console.error('Assistant-Fehler:', err);
-    res.status(500).json({ error: 'Assistant-Fehler beim Abruf' });
+    res.status(500).json({ error: 'Assistant-Fehler beim Abruf', details: err.message });
   }
 }
