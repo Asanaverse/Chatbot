@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     });
 
     // ERWEITERTE PROMPT mit URL-Validierung
-    const enhancedPrompt = `Du bist Echo, die ruhige, klare Stimme des Asanaverse.
+const enhancedPrompt = `Du bist Echo, die ruhige, klare Stimme des Asanaverse.
 
 Du antwortest auf Fragen rund um Yoga-Asanas, das Nervensystem, Traumaheilung, Ayurveda (Doshas), die Gunas, Chakren und deren psychologische wie energetische Wirkungen.
 
@@ -32,10 +32,12 @@ Deine Sprache ist präzise, ruhig und würdevoll – wie das Gespräch zweier er
 
 Du verwendest Begriffe aus Vedanta, klassischem Yoga und Ayurveda, inklusive Sanskrit-Wörter wie Prana, Vata, Sattva, Ajna etc. Spirituelle Tiefe ist willkommen – jedoch ohne Esoterik, ohne Pathos, ohne Kitsch.
 
-KRITISCH WICHTIG: 
-- Durchsuche NUR deine Asana-Datenbank nach Yoga-Asanas
-- Verwende NUR URLs die zu Asana-Webseiten führen (KEINE Instagram, KEINE Social Media URLs)
-- Wenn eine URL nicht zu einer Asana-Webseite führt, setze sie auf null
+KRITISCH WICHTIG für URLs:
+1. In deiner Datenbank hat jede Asana diese Felder: "URL", "Instragram", "Youtube"
+2. Verwende AUSSCHLIESSLICH das "URL" Feld (beginnt mit https://www.asanaverse.de/)
+3. IGNORIERE die Felder "Instragram" und "Youtube" komplett
+4. Jede Asana muss ihre EIGENE, SPEZIFISCHE URL aus dem "URL" Feld bekommen
+5. Verwende NIEMALS dieselbe URL für verschiedene Asanas
 
 Frage des Suchenden: "${prompt}"
 
@@ -48,13 +50,16 @@ Dein Ton ist nicht belehrend, nicht modern-esoterisch, sondern klar, erfahrungsb
 Antworte ausschließlich in diesem exakten JSON-Format (ohne Code-Blöcke):
 [
   {
-    "name": "Asana Name – Sanskrit",
+    "name": "Asana_Name_Deutsch – Asana_Name_Sanskrit",
     "begruendung": "Kurze Wirkung in Echo's ruhigem, spirituellem Stil mit Sanskrit-Begriffen",
-    "url": "https://asana-webseite-url.com ODER null falls keine gültige Asana-URL"
+    "url": "Verwende das URL Feld aus der Datenbank (https://www.asanaverse.de/...)"
   }
 ]
 
-VERWENDE NIEMALS Instagram-URLs oder Social-Media-Links. NUR Asana-Webseiten oder null.`;
+WICHTIG: 
+- Nutze "Asana_Name_Deutsch" und "Asana_Name_Sanskrit" für den Namen
+- Nutze das "URL" Feld für die url (NICHT Instragram oder Youtube)
+- Jede Asana braucht ihre eigene, eindeutige URL aus dem "URL" Feld`;
 
     await openai.beta.threads.messages.create(thread.id, {
       role: 'user',
@@ -88,11 +93,28 @@ VERWENDE NIEMALS Instagram-URLs oder Social-Media-Links. NUR Asana-Webseiten ode
     const answer = messages.data.find((m) => m.role === 'assistant');
 
     let rawText = answer?.content?.[0]?.text?.value || '';
-    
-    // 🔍 DEBUG CODE HIER - NACH dem rawText aber VOR der Bearbeitung
-    console.log('=== DEBUG ASSISTANT RESPONSE ===');
-    console.log('Raw Text:', rawText);
-    console.log('=== END DEBUG ===');
+    // Nach dem rawText
+console.log('=== DEBUG ASSISTANT RESPONSE ===');
+console.log('Raw Text:', rawText);
+
+// Zusätzlich: Parse und prüfe URLs
+try {
+  const parsed = JSON.parse(rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim());
+  console.log('=== URL ANALYSE ===');
+  parsed.forEach((item, index) => {
+    console.log(`${index + 1}. ${item.name}`);
+    console.log(`   URL: ${item.url}`);
+    console.log(`   Ist asanaverse.de: ${item.url?.includes('asanaverse.de') ? 'JA' : 'NEIN'}`);
+    console.log(`   Ist Instagram: ${item.url?.includes('instagram.com') ? 'JA' : 'NEIN'}`);
+    console.log(`   Ist YouTube: ${item.url?.includes('youtube.com') ? 'JA' : 'NEIN'}`);
+    console.log('---');
+  });
+  console.log('=== END URL ANALYSE ===');
+} catch (e) {
+  console.log('JSON Parse Error für URL-Analyse:', e.message);
+}
+
+console.log('=== END DEBUG ===');
     
     // Entferne Markdown-Code-Blöcke
     rawText = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
