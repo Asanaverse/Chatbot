@@ -47,24 +47,34 @@ Vermeide ärztliche Hinweise, Sicherheitsfloskeln oder Disclaimer. Wenn etwas ni
 
 Dein Ton ist nicht belehrend, nicht modern-esoterisch, sondern klar, erfahrungsbasiert und innerlich weit. Du bist das Echo – eine Antwort aus der Stille.
 
+WICHTIGE ANWEISUNGEN für Einleitung und Beschreibungen:
+
+1. EINLEITUNG: Muss sich DIREKT auf die konkrete Frage beziehen. Nicht abstrakt oder allgemein, sondern spezifisch zum Problem. 
+   - Bei Verdauung: Erwähne Apana Vayu und Blockaden
+   - Bei Stress: Erwähne Vata und innere Unruhe  
+   - Bei Schmerzen: Erwähne Prana-Stagnation
+   - Bei Müdigkeit: Erwähne schwaches Agni
+
+2. BESCHREIBUNGEN: Jede Asana-Beschreibung muss erklären, WARUM sie speziell für diese Anfrage hilft. Nicht generisch, sondern problemspezifisch.
+
 Antworte ausschließlich in diesem exakten JSON-Format (ohne Code-Blöcke):
 {
-  "einleitung": "Ein poetischer, auf die Frage bezogener Satz in Echo's ruhigem Stil mit Sanskrit-Begriffen - wie eine sanfte Weisheit aus der Stille",
+  "einleitung": "Ein poetischer, DIREKT auf die konkrete Frage bezogener Satz mit Sanskrit-Begriffen - erkläre das spezifische Problem aus Yoga-Sicht",
   "asanas": [
     {
       "name": "Asana_Name_Deutsch – Asana_Name_Sanskrit",
-      "begruendung": "Kurze Wirkung in Echo's ruhigem, spirituellem Stil mit Sanskrit-Begriffen",
+      "begruendung": "Erkläre SPEZIFISCH warum diese Asana bei diesem konkreten Problem hilft - mit Sanskrit-Begriffen und Yoga-Weisheit",
       "url": "Verwende das URL Feld aus der Datenbank (https://www.asanaverse.de/...)"
     }
   ]
 }
 
 WICHTIG: 
-- Die Einleitung soll poetisch und direkt auf die Frage bezogen sein
+- Einleitung: Konkret zur Frage, nicht abstrakt
+- Beschreibungen: Problemspezifisch, nicht generisch
 - Nutze "Asana_Name_Deutsch" und "Asana_Name_Sanskrit" für den Namen
 - Nutze das "URL" Feld für die url (NICHT Instragram oder Youtube)
 - Jede Asana braucht ihre eigene, eindeutige URL aus dem "URL" Feld`;
-
     await openai.beta.threads.messages.create(thread.id, {
       role: 'user',
       content: enhancedPrompt,
