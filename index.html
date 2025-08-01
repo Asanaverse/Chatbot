@@ -100,7 +100,7 @@
       }
     });
 
-    async function sendMessage() {
+async function sendMessage() {
   const query = userInput.value.trim();
   if (!query) return;
 
@@ -114,7 +114,7 @@
 
   const loadingDiv = document.createElement('div');
   loadingDiv.className = 'message bot-message';
-  loadingDiv.innerHTML = '<p>🧘‍♀️ Durchsuche die Asana-Datenbank...</p>';
+  loadingDiv.innerHTML = '<p>🧘‍♀️ Das Echo lauscht...</p>';
   chatMessages.appendChild(loadingDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -136,17 +136,15 @@
     let rawText = result.result?.[0]?.text?.value;
 
     if (!rawText) {
-      loadingDiv.innerHTML = '<p>Ich konnte leider keine Antwort erzeugen.</p>';
+      loadingDiv.innerHTML = '<p>Die Stille antwortet nicht. Versuche es erneut.</p>';
       return;
     }
-
-    console.log('Frontend Raw Text:', rawText);
 
     try {
       const parsed = JSON.parse(rawText);
 
       if (Array.isArray(parsed) && parsed.length > 0) {
-        let html = '<p><strong>Hier sind passende Asanas aus der Datenbank:</strong></p><ul>';
+        let html = '<p><strong>Das Echo ruft zurück:</strong></p><ul style="list-style: none; padding-left: 0;">';
         
         parsed.forEach(item => {
           const name = item.name || 'Unbekanntes Asana';
@@ -154,26 +152,34 @@
           const url = item.url;
           
           if (url && url !== 'null' && url !== null && url.startsWith('http')) {
-            html += `<li><strong>${name}</strong>: ${begruendung}<br><a href="${url}" target="_blank" style="color: #f88c57;">→ Zum Asana</a></li>`;
+            html += `<li style="margin-bottom: 1rem; padding: 0.8rem; background: rgba(248, 140, 87, 0.1); border-radius: 8px;">
+              <strong style="color: #d67c47;">${name}</strong><br>
+              <span style="color: #666; line-height: 1.4;">${begruendung}</span><br>
+              <a href="${url}" target="_blank" style="color: #f88c57; text-decoration: none; font-weight: 500; margin-top: 0.5rem; display: inline-block;">→ Zur Asana</a>
+            </li>`;
           } else {
-            html += `<li><strong>${name}</strong>: ${begruendung}<br><em style="color: #999;">URL nicht verfügbar</em></li>`;
+            html += `<li style="margin-bottom: 1rem; padding: 0.8rem; background: rgba(248, 140, 87, 0.1); border-radius: 8px;">
+              <strong style="color: #d67c47;">${name}</strong><br>
+              <span style="color: #666; line-height: 1.4;">${begruendung}</span><br>
+              <em style="color: #999; font-size: 0.9em;">Pfad zur Asana nicht verfügbar</em>
+            </li>`;
           }
         });
         
         html += '</ul>';
         loadingDiv.innerHTML = html;
       } else {
-        loadingDiv.innerHTML = `<p>Unerwartete Antwort:</p><pre>${rawText}</pre>`;
+        loadingDiv.innerHTML = '<p>Diese Frage liegt jenseits meines Feldes. Lausche tiefer – vielleicht offenbart sich etwas.</p>';
       }
 
     } catch (parseError) {
       console.error('JSON Parse Error:', parseError);
-      loadingDiv.innerHTML = `<p>Rohantwort:</p><pre>${rawText}</pre><p><em>Konnte nicht als JSON geparst werden.</em></p>`;
+      loadingDiv.innerHTML = `<p style="color: #666; font-style: italic;">${rawText}</p>`;
     }
 
   } catch (err) {
     console.error('Frontend Error:', err);
-    loadingDiv.innerHTML = `<p>❌ Fehler: ${err.message}</p>`;
+    loadingDiv.innerHTML = '<p>❌ Die Verbindung zur Stille ist unterbrochen. Versuche es erneut.</p>';
   } finally {
     sendButton.disabled = false;
     userInput.disabled = false;
