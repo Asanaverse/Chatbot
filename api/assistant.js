@@ -96,3 +96,8 @@ Verwende NUR Asanas und URLs aus deiner Datenbank. Erfinde keine URLs.`;
     res.status(500).json({ error: 'Assistant-Fehler beim Abruf', details: err.message });
   }
 }
+
+// In api/assistant.js - nach dem rawText
+console.log('=== DEBUG ASSISTANT RESPONSE ===');
+console.log('Raw Text:', rawText);
+console.log('=== END DEBUG ===');
